@@ -1,0 +1,32 @@
+MetStat — ساخت خودکار نقشه‌های مدل‌های عددی روی GitHub و ارسال به هاست
+==========================================================================
+
+منبع داده: داده‌های باز مدل‌ها در Open-Meteo (Amazon S3، مجوز CC-BY 4.0) با بهترین رزولوشن رایگان:
+  ECMWF IFS 0.25° (00/06/12/18) · GFS 0.11° (13 km) · ICON-EU 7 km + ICON 13 km · UKMO 10 km
+  GEM 15 km (00/12) · ARPEGE 0.25° · ACCESS-G (BoM)
+با شروع هر اجرای جدید یک مدل، نقشه‌های اجرای قبلی همان مدل روی هاست پاک می‌شوند.
+
+نقشه‌ها: قاب و رنگ‌بندی weather.us (رنگ‌های گسسته، بدون رنگ واسطه)، مرزبندی MetStat، لوگوی MetStat؛
+منطقه‌ها: ایران و فارس. هر نقشه یک «نشانهٔ ماشینی» در دو ردیف پایین دارد (پارامتر، مدل، زمان، اعداد نوار رنگ)
+تا سایت بدون OCR آن را بشناسد.
+
+پارامترها
+  بارش و برف (همهٔ مدل‌ها): ۱، ۳، ۶، ۲۴، ۴۸، ۱۲۰ ساعته و تجمعی کل  (p1 p3 p6 p24 p48 p120 pacc / s1 s3 s6 snow24 s48 s120 snowacc)
+  ECMWF و ACCESS: دمای ۲ متری، دمای خاک نزدیک سطح، دمای بیشینه و کمینهٔ ۲۴ ساعته، انومالی دما (میانگین روزانه)
+      — دما با DEM سی‌ثانیه‌ای ایران اصلاح ارتفاعی می‌شود؛ انومالی نسبت به نرمال ۱۹۹۱–۲۰۲۰ ایستگاه‌های IRIMO (فقط داخل ایران)
+  ECMWF: رطوبت نسبی، آب قابل بارش، تندباد، فشار سطح دریا+رطوبت+باد سطحی، ارتفاع ژئوپتانسیل+رطوبت ۸۵۰/۷۰۰/۵۰۰، باد ۵۰۰ و ۳۰۰
+  ECMWF و GFS: شاخص K، CAPE، Soaring، GDI، Lifted، بازتاب پایه (برآورد از شدت بارش)، هوای مهم؛ GFS: CIN
+
+نصب (یک بار)
+  ۱) هاست: محتویات host_nwp.zip را در پوشهٔ online روی هاست باز کنید
+     (nwp_upload.php، clim_tmean.npz، .htaccess و data/.htaccess). کلید همان upload_key در mx_config.json است.
+  ۲) GitHub، مخزن metstat-maps:
+     - Settings → General → پایین صفحه Change visibility → Public  (برای اجرای نامحدود و رایگان؛ کلیدها در Secrets پنهان می‌مانند)
+     - Add file → Upload files: همهٔ فایل‌ها و پوشهٔ assets از github_nwp.zip را بکشید و Commit
+     - Add file → Create new file: نام .github/workflows/nwp.yml و متن همان فایل را بچسبانید → Commit
+     - Actions → metstat-maps (قدیمی) → ⋯ → Disable workflow
+     - Secrets لازم (از قبل هست): MX_HOST = https://wtafkik.ir/online   و   MX_KEY = کلید آپلود
+  ۳) Actions → metstat-nwp → Run workflow. مرحلهٔ probe وضعیت هر مدل را می‌نویسد؛ مرحلهٔ maps نقشه‌ها را می‌سازد.
+
+زمان‌بندی: هر ۶ ساعت یک اجرای حدود ۵ ساعت و ۴۰ دقیقه‌ای که هر ۵ دقیقه گام‌های تازه را می‌گیرد.
+آزمون محلی بدون اینترنت:  python nwp_maps.py --mock --out out --models ecmwf --max-steps 6
