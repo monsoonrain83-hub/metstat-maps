@@ -461,7 +461,9 @@ class Uploader:
             try:
                 r = requests.post(u, json=js, files=files, data=data, timeout=90)
                 if r.status_code == 403: sys.exit('✗ کلید آپلود اشتباه است (upload_key در mx_config.json روی هاست)')
-                return r.json()
+                try: return r.json()
+                except Exception: raise RuntimeError(f'HTTP {r.status_code} [{a}] پاسخ: {r.text[:160]!r}')
+            except SystemExit: raise
             except Exception as e:
                 log(f'  … خطای ارتباط با هاست ({e}); تلاش دوباره'); time.sleep(5 * (k + 1))
         return {}
