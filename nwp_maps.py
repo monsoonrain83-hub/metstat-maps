@@ -509,9 +509,9 @@ def clim_at(region, d):
     return one(a) * (1 - u) + one(b) * u
 
 ZCLIM = None
-ZCLIM_URLS = ['https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis/Monthlies/pressure/hgt.mon.1991-2020.ltm.nc',
-              'https://psl.noaa.gov/thredds/fileServer/Datasets/ncep.reanalysis/Monthlies/pressure/hgt.mon.1991-2020.ltm.nc',
-              'https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis/Monthlies/pressure/hgt.mon.ltm.nc']
+ZCLIM_URLS = ['https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis.derived/pressure/hgt.mon.ltm.1991-2020.nc',
+              'https://psl.noaa.gov/psd/thredds/fileServer/Datasets/ncep.reanalysis.derived/pressure/hgt.mon.ltm.1991-2020.nc',
+              'https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis.derived/pressure/hgt.mon.ltm.nc']
 def load_zclim():
     """اقلیم ماهانهٔ ارتفاع ژئوپتانسیل ۵۰۰ هکتوپاسکال (NCEP/NCAR، ۱۹۹۱–۲۰۲۰) برای انومالی؛ در صورت دانلود‌نشدن، نقشهٔ انومالی ساخته نمی‌شود."""
     global ZCLIM
@@ -525,7 +525,8 @@ def load_zclim():
                 try:
                     r = requests.get(u, timeout=180)
                     if r.ok and r.content[:3] in (b'CDF', b'\x89HD'): open(path, 'wb').write(r.content); break
-                except Exception: pass
+                    else: log(f'  اقلیم Z500: HTTP {r.status_code} از {u}')
+                except Exception as e: log(f'  اقلیم Z500: {u} → {e}')
         if os.path.exists(path):
             import netCDF4
             ds = netCDF4.Dataset(path); lev = np.array(ds['level'][:]); k = int(np.argmin(np.abs(lev - 500)))
