@@ -41,6 +41,12 @@ SC = {
     'wind':  dict(colors=_P['herbie_wind'], edges=WIND_SFC),
     'windu': dict(colors=_P['herbie_wind'], edges=WIND_UP),
     'gust':  dict(colors=_P['herbie_wind'], edges=GUST),
+    'wind10': dict(colors=_P['tt_wind10'], edges=[-INF] + list(range(4, 87, 2)) + [INF]),
+    'windup': dict(colors=_P['tt_windup'], edges=[-INF] + list(range(20, 211, 5)) + [220, 230, 240, 250, INF]),
+    'z500a': dict(colors=_P['wx_z500a'], edges=[-INF] + list(range(-49, 49)) + [INF]),
+    # انومالی پیش‌بینی‌های بلندمدت (ماهانه/فصلی): دما °C و بارش mm/day
+    'lrta':  dict(colors=_P['wu_tanom'], edges=[-INF, -4, -3, -2.5, -2, -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, INF]),
+    'lrpa':  dict(colors=['#543005', '#7f4a0c', '#a3691a', '#bf8a2e', '#d6aa55', '#e6c88a', '#f0dcb3', '#f7ecd3', '#ffffff', '#d9efe8', '#b3e0d3', '#86cdbc', '#55b4a3', '#2f9a8c', '#1a7e75', '#0b6159', '#00443f'], edges=[-INF, -4, -3, -2, -1.5, -1, -0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, INF]),
     'sigwx': dict(colors=SIG_COLORS, edges=[k - 0.5 for k in range(16)]),
 }
 for k, v in PRECIP.items(): SC['pr_' + k] = v

@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""نقشه‌های پیش‌بینی بلندمدت (ماهانه/فصلی): NMME از FTP عمومی CPC → کاشی «خاورمیانه» → هاست.
+  NMME realtime anomalies: https://ftp.cpc.ncep.noaa.gov/NMME/realtime_anom/<MODEL>/<YYYYMM0800>/*.nc  (متغیرها prate و tmp2m؛ انومالی)
+آزمایشی: ساختار پوشه‌ها با فهرست‌گیری کشف می‌شود و هر خطا فقط همان مدل را کنار می‌گذارد.
+اجرا: python lr_maps.py --host https://wtafkik.ir/online --key KEY   |   --mock --host ... (آزمون بدون شبکه)"""
+import argparse, io, json, math, os, re, sys, tempfile, time
+import numpy as np
+from scipy.ndimage import map_coordinates
+import nwp_maps as N, styles
+
+BASE = 'https://ftp.cpc.ncep.noaa.gov/NMME/realtime_anom/'
+# کلید مدل روی هاست: (نام پوشه در CPC — بدون حساسیت به حروف، برچسب فارسی, نام لاتین)
+MODELS = {
+    'nmme':    ('ENSMEAN', 'NMME میانگین چندمدلی', 'NMME ensemble mean'),
+    'cfsv2':   ('CFSv2', 'CFSv2 (NOAA)', 'CFSv2'),
+    'ccsm4':   ('CCSM4', 'NCAR CCSM4', 'NCAR CCSM4'),
+    'gemnemo': ('GEM5_NEMO', 'GEM5-NEMO (ECCC)', 'GEM5-NEMO'),
+    'nasa':    ('NASA', 'NASA GEOS-S2S', 'NASA GEOS-S2S'),
+    'gfdl':    ('GFDL', 'GFDL SPEAR', 'GFDL SPEAR'),
+    'cancm':   ('CanCM4i', 'CanCM4i (ECCC)', 'CanCM4i'),
+}
+VARS = {'prate': ('lrpa', 'انومالی بارش ماهانه (میلی‌متر در روز)', 'mm/d', 'pr', 'lrpa', 86400.0), 'tmp2m': ('lrta', 'انومالی دمای ۲ متری ماهانه (°C)', '°C', 'tp', 'lrta', 1.0)}
+LON = np.float32(N.ME_EXT[0]) + (np.arange(N.MEW) + 0.5) / N.PXD
+LAT = np.float32(N.ME_EXT[3]) - (np.arange(N.MEH) + 0.5) / N.PXD
+LON2, LAT2 = np.meshgrid(LON, LAT)
+log = N.log
+
+def get(url, binary=False):
+    import requests
+    r = requests.get(url, timeout=120, headers={'User-Agent': 'MetStat-lr/1.0'}); r.raise_for_status()
+    return r.content if binary else r.text
+
+def links(url):
+    return [h for h in re.findall(r'href="([^"?#]+)"', get(url)) if not h.startswith(('/', 'http', '..'))]
+
+def find_dir(key):
+    names = links(BASE); key = key.lower()
+    c = [n for n in names if n.endswith('/') and key in n.lower()]
+    return BASE + (sorted(c, key=len)[0]) if c else None
+
+def regrid(arr, lon, lat):
+    """میدان lat/lon منظم → شبکهٔ کاشی (درون‌یابی مکعبی؛ رنگ‌ها بعداً گسسته می‌شوند)"""
+    lon = np.asarray(lon, float) % 360; lat = np.asarray(lat, float)
+    o = np.argsort(lon); lon, arr = lon[o], arr[:, o]
+    if lat[0] > lat[-1]: lat, arr = lat[::-1], arr[::-1]
+    arr = np.ma.filled(np.ma.masked_invalid(arr).astype(float), np.nan)
+    ix = np.interp(LON2 % 360, lon, np.arange(len(lon))); iy = np.interp(LAT2, lat, np.arange(len(lat)))
+    a = np.where(np.isfinite(arr), arr, np.nanmean(arr))
+    return map_coordinates(a, [iy, ix], order=3, mode='nearest').astype(np.float32)
+
+def read_nc(path, vname):
+    import netCDF4
+    ds = netCDF4.Dataset(path); vs = ds.variables
+    key = next((k for k in vs if vname in k.lower()), None)
+    if not key: raise RuntimeError(f'متغیر {vname} در فایل نیست ({list(vs)[:8]})')
+    v = vs[key]; dims = v.dimensions
+    lonk = next(k for k in vs if k.lower() in ('lon', 'x', 'longitude')); latk = next(k for k in vs if k.lower() in ('lat', 'y', 'latitude'))
+    data = np.ma.filled(v[:].astype(float), np.nan)
+    data = data.reshape((-1,) + data.shape[-2:])                  # (lead, lat, lon)
+    # ترتیب محورهای lat/lon
+    if v.shape[-1] == len(vs[latk][:]) and v.shape[-2] == len(vs[lonk][:]): data = np.transpose(data, (0, 2, 1))
+    ds_ = (np.array(vs[lonk][:]), np.array(vs[latk][:])); ds.close(); return data, ds_[0], ds_[1]
+
+def month_add(y, m, k): m += k; return y + (m - 1) // 12, (m - 1) % 12 + 1
+
+def run_model(up, mkey, init_dirs, a):
+    folder, label, en = MODELS[mkey]; d = find_dir(folder)
+    if not d: log(f'  ✗ {mkey}: پوشه‌ای شبیه {folder} در CPC نیست'); return 0
+    subs = sorted(x for x in links(d) if re.fullmatch(r'\d{8,10}/', x)); 
+    if not subs: log(f'  ✗ {mkey}: پوشهٔ اجرا نیست'); return 0
+    sub = subs[-1]; ym = sub[:6]; y0, m0 = int(ym[:4]), int(ym[4:6]); run = sub[:8] + '00' if len(sub) >= 9 else ym + '0800'
+    files = [f for f in links(d + sub) if f.endswith('.nc')]
+    made = 0; started = False
+    for vn, (pid, fa, unit, cat, sc, mul) in VARS.items():
+        fs = [f for f in files if vn in f.lower()]
+        if not fs: log(f'  ✗ {mkey}: فایل {vn} نیست'); continue
+        with tempfile.TemporaryDirectory() as td:
+            p = os.path.join(td, 'x.nc'); open(p, 'wb').write(get(d + sub + fs[0], True))
+            data, lon, lat = read_nc(p, vn)
+        if not started:
+            up.call('begin', js={'model': mkey, 'run': run, 'name': mkey.upper(), 'label': label, 'info': dict(tclass='monthly', res='1°', cyc='ماهانه', prov='NOAA CPC / NMME'),
+                                 'cats': [dict(id=i, fa=f, o=o) for i, f, o in N.CATS],
+                                 'scales': {k: dict(c=styles.SC[k]['colors'], e=[None if abs(x) == math.inf else x for x in styles.SC[k]['edges']], lo=True, hi=True) for k in ('lrta', 'lrpa')},
+                                 'params': {v[0]: dict(fa=v[1], unit=v[2], cat=v[3], o=90 + i, sc=v[4], mu=v[2], alt='', me=1, ln=0) for i, v in enumerate(VARS.values())}}); started = True
+        for k in range(min(len(data), 9)):
+            y, m = month_add(y0, m0, k); valid = f'{y}{m:02d}0100'
+            f = regrid(data[k] * mul, lon, lat)
+            if not np.isfinite(f).any(): continue
+            dat, _ = N.render_me(None, f, sc)
+            up.put(mkey, run, f'me/{pid}_{valid}.webp', dat, dict(s=k)); made += 1
+    if started: up.wait(); up.call('end', js={'model': mkey, 'run': run}); log(f'✓ {mkey} {run}: {made} نقشه')
+    return made
+
+def main():
+    ap = argparse.ArgumentParser(); ap.add_argument('--host'); ap.add_argument('--key', default=''); ap.add_argument('--out'); ap.add_argument('--models', default=','.join(MODELS)); ap.add_argument('--mock', action='store_true')
+    a = ap.parse_args(); up = N.Uploader(a.host, a.key, a.out); tot = 0
+    if a.mock:
+        global get, links, find_dir, read_nc
+        rng = np.random.default_rng(1); la = np.arange(-89.5, 90); lo = np.arange(0.5, 360)
+        def read_nc(path, vn): return rng.normal(0, 1.2 if vn == 'tmp2m' else 1.5e-5 if vn == 'prate' else 1, (7, 180, 360)).astype(np.float32) * (1 if vn == 'tmp2m' else 1), lo, la
+        find_dir = lambda k: BASE + k + '/'
+        links = lambda u: (['202610/'] if False else []) or (['2026100800/'] if u.endswith('/') and u.count('/') < 7 else ['prate.nc', 'tmp2m.nc'])
+        get = lambda u, b=False: b'x'
+        a.models = 'nmme'
+    for mk in a.models.split(','):
+        try: tot += run_model(up, mk, None, a)
+        except Exception as e: log(f'✗ {mk}: {type(e).__name__}: {e}')
+    log(f'پایان: {tot} نقشه'); sys.exit(0)
+
+if __name__ == '__main__': main()

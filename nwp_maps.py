@@ -40,15 +40,18 @@ GRIDS = {
     'meteofrance_arpege_world025': (1440, 721, -90, -180, 0.25, 0.25),
     'bom_access_global': (2048, 1536, -89.941406, -179.912109, 360 / 2048, 180 / 1536),
 }
-BBOX = (41.0, 67.0, 22.5, 42.0)        # lon0, lon1, lat0, lat1 — پوشش هر دو کادر ایران و فارس با حاشیه
+BBOX = (17.0, 68.0, 9.0, 45.0)         # lon0, lon1, lat0, lat1 — پوشش کادرهای ایران و فارس و خاورمیانه (نمایشگر) با حاشیه
+ME_EXT = (20.0, 65.0, 12.0, 42.0)      # کادر «خاورمیانه» نمایشگر (همان کادر Tropical Tidbits)
+PXD = 32                                # پیکسل در هر درجه برای کاشی‌های خاورمیانه (≈ ۰٫۰۳ درجه)
+MEW, MEH = int((ME_EXT[1] - ME_EXT[0]) * PXD), int((ME_EXT[3] - ME_EXT[2]) * PXD)
 MODELS = {
-    'ecmwf':  dict(name='ECMWF', label='ECMWF IFS 0.25°', dom=['ecmwf_ifs025'], prov='ECMWF', hz={'00': 240, '12': 240, '06': 144, '18': 144}),
-    'gfs':    dict(name='GFS', label='GFS 0.11° (13 km)', dom=['ncep_gfs013'], upper='ncep_gfs025', prov='NOAA NCEP', hz=240),
-    'icon':   dict(name='ICON', label='ICON-EU 7 km + ICON 13 km', dom=['dwd_icon'], hires='dwd_icon_eu', prov='DWD', hz={'00': 180, '12': 180, '06': 120, '18': 120}),
-    'ukmo':   dict(name='UKMO', label='UKMO Global 10 km', dom=['ukmo_global_deterministic_10km'], prov='Met Office', hz=168),
-    'gem':    dict(name='GEM', label='GEM GDPS 15 km', dom=['cmc_gem_gdps_15km', 'cmc_gem_gdps'], prov='ECCC', hz=240),
-    'arpege': dict(name='ARPEGE', label='ARPEGE 0.25°', dom=['meteofrance_arpege_world025'], prov='Météo-France', hz=102),
-    'access': dict(name='ACCESS', label='ACCESS-G (BoM)', dom=['bom_access_global'], prov='BoM', hz=240),
+    'ecmwf':  dict(name='ECMWF', label='ECMWF IFS 0.25°', dom=['ecmwf_ifs025'], prov='ECMWF', hz={'00': 240, '12': 240, '06': 144, '18': 144}, res='0.25°', cyc='00/06/12/18'),
+    'gfs':    dict(name='GFS', label='GFS 0.11° (13 km)', dom=['ncep_gfs013'], upper='ncep_gfs025', prov='NOAA NCEP', hz=240, res='0.11° (13 km)', cyc='00/06/12/18'),
+    'icon':   dict(name='ICON', label='ICON-EU 7 km + ICON 13 km', dom=['dwd_icon'], hires='dwd_icon_eu', prov='DWD', hz={'00': 180, '12': 180, '06': 120, '18': 120}, res='7 km (اروپا) / 13 km', cyc='00/06/12/18'),
+    'ukmo':   dict(name='UKMO', label='UKMO Global 10 km', dom=['ukmo_global_deterministic_10km'], prov='Met Office', hz=168, res='10 km', cyc='00/06/12/18'),
+    'gem':    dict(name='GEM', label='GEM GDPS 15 km', dom=['cmc_gem_gdps_15km', 'cmc_gem_gdps'], prov='ECCC', hz=240, res='15 km', cyc='00/12'),
+    'arpege': dict(name='ARPEGE', label='ARPEGE 0.25°', dom=['meteofrance_arpege_world025'], prov='Météo-France', hz=102, res='0.25°', cyc='00/06/12/18'),
+    'access': dict(name='ACCESS', label='ACCESS-G (BoM)', dom=['bom_access_global'], prov='BoM', hz=240, res='0.17°', cyc='00/12'),
 }
 REGIONS = {'iran': dict(geo=(-1506.432, 35.07327, 1611.463, -40.47955), en='Iran', fa='ایران'),
            'fars': dict(geo=(-4387.15, 89.808, 3366.55, -103.991), en='Fars', fa='فارس')}
@@ -95,8 +98,29 @@ PARAMS.update({
     'z700':  dict(kind='inst', sc='rh', models=I_EC, unit='%', en='Geopotential 700 hPa (gpdm) & RH 700 hPa (%)', fa='ارتفاع ژئوپتانسیل و رطوبت ۷۰۰ هکتوپاسکال', cont='gh700'),
     'z500':  dict(kind='inst', sc='rh', models=I_EC, unit='%', en='Geopotential 500 hPa (gpdm) & RH 500 hPa (%)', fa='ارتفاع ژئوپتانسیل و رطوبت ۵۰۰ هکتوپاسکال', cont='gh500'),
     'w500':  dict(kind='inst', sc='windu', models=I_EC, unit='km/h', en='Wind 500 hPa (km/h)', fa='سرعت و جهت باد ۵۰۰ هکتوپاسکال', barbs='500hPa'),
-    'w300':  dict(kind='inst', sc='windu', models=I_EC, unit='km/h', en='Wind 300 hPa (km/h)', fa='سرعت و جهت باد ۳۰۰ هکتوپاسکال', barbs='300hPa'),
+    'w300':  dict(kind='inst', sc='windu', models=I_EC, unit='km/h', en='Wind 300 hPa (km/h)', fa='سرعت و جهت باد ۳۰۰ هکتوپاسکال', barbs='300hPa', me=dict(sc='windup', unit='kt', k=1.94384 / 3.6)),
 })
+PARAMS['w500']['me'] = dict(sc='windup', unit='kt', k=1.94384 / 3.6)
+PARAMS['gust']['me'] = dict(sc='gust', unit='km/h', k=1.0)
+# ---- پارامترهای ویژهٔ نمایشگر (فقط کاشی‌های خاورمیانه؛ رنگ‌ها از نمونه‌نقشه‌های Tropical Tidbits و WXCharts)
+PARAMS.update({
+    'w10':   dict(kind='inst', sc='wind10', models=I_ECG, unit='kt', me_only=True, ln=True, en='MSLP (mb) & 10m Wind Speed (kt)', fa='فشار سطح دریا و سرعت باد ۱۰ متری (گره)'),
+    'w250':  dict(kind='inst', sc='windup', models=I_EC, unit='kt', me_only=True, ln=True, en='250mb Wind Speed/Streamlines (kt) & MSLP Extrema (mb)', fa='سرعت باد و خطوط جریان ۲۵۰ هکتوپاسکال (گره)'),
+    'w200':  dict(kind='inst', sc='windup', models=I_EC, unit='kt', me_only=True, ln=True, en='200mb Wind Speed/Streamlines (kt)', fa='سرعت باد و خطوط جریان ۲۰۰ هکتوپاسکال (گره)'),
+    'z500a': dict(kind='inst', sc='z500a', models=I_EC, unit='dm', me_only=True, ln=True, en='500hPa Geopotential Height (dm) & Anomaly', fa='ارتفاع ژئوپتانسیل ۵۰۰ هکتوپاسکال و انومالی (دکامتر)'),
+    't2mr':  dict(kind='inst', sc='temp', models=I_ECA, unit='°C', me_only=True, raw=True, en='Temperature 2m (°C), uncorrected', fa='دمای ۲ متری (بدون اصلاح ارتفاعی)'),
+    'tmaxr': dict(kind='day', sc='temp', models=I_ECA, unit='°C', me_only=True, raw=True, en='Max. temperature 2m, 24h (°C), uncorrected', fa='دمای بیشینه ۲۴ ساعته (بدون اصلاح ارتفاعی)'),
+    'tminr': dict(kind='day', sc='temp', models=I_ECA, unit='°C', me_only=True, raw=True, en='Min. temperature 2m, 24h (°C), uncorrected', fa='دمای کمینه ۲۴ ساعته (بدون اصلاح ارتفاعی)'),
+})
+for _a, _b in (('t2m', 't2mr'), ('tmax', 'tmaxr'), ('tmin', 'tminr')): PARAMS[_a]['alt'] = _b
+# دسته‌بندی استاندارد برای منوهای نمایشگر (شناسه، نام فارسی، ترتیب)
+CATS = [('pr', 'بارش', 1), ('sn', 'برف', 2), ('tp', 'دما', 3), ('hm', 'رطوبت و آب قابل بارش', 4), ('sf', 'فشار و باد سطحی', 5),
+        ('ul', 'ارتفاع ژئوپتانسیل و رطوبت ترازهای بالا', 6), ('uw', 'باد در ترازهای بالا', 7), ('cv', 'همرفت و ناپایداری', 8), ('rd', 'بازتاب و هوای مهم', 9)]
+_CAT = {'t2m': 'tp', 'tsoil': 'tp', 'tmax': 'tp', 'tmin': 'tp', 'tanom': 'tp', 't2mr': 'tp', 'tmaxr': 'tp', 'tminr': 'tp', 'rh': 'hm', 'pw': 'hm', 'gust': 'sf', 'sfc': 'sf', 'w10': 'sf',
+        'z850': 'ul', 'z700': 'ul', 'z500': 'ul', 'z500a': 'ul', 'w500': 'uw', 'w300': 'uw', 'w250': 'uw', 'w200': 'uw',
+        'ki': 'cv', 'cape': 'cv', 'cin': 'cv', 'si': 'cv', 'gdi': 'cv', 'li': 'cv', 'refl': 'rd', 'sigwx': 'rd'}
+for _i, (_p, _P) in enumerate(PARAMS.items()):
+    _P['cat'] = _CAT.get(_p) or ('sn' if _P.get('var') == 'snow' else 'pr'); _P['ord'] = _i
 
 # ---------------------------------------------------------------- فیزیک
 def es_hpa(tc): return 6.112 * np.exp(17.67 * tc / (tc + 243.5))
@@ -298,6 +322,65 @@ class Region:
             return out.astype(np.float32)
         return map_coordinates(a, c, order=order, mode='nearest', prefilter=False).astype(np.float32)
 
+class MERegion(Region):
+    """کادر «خاورمیانه» برای نمایشگر: شبکهٔ هم‌فاصلهٔ جغرافیایی (۳۲ پیکسل در درجه)؛ DEM ایران روی آن نمونه‌برداری می‌شود."""
+    def __init__(s, iran):
+        s.key = 'me'; s.en = 'Middle East'; s.iran = iran; s._idx = {}
+        s.geo = (-ME_EXT[0] * PXD, float(PXD), ME_EXT[3] * PXD, -float(PXD))
+        xs = np.arange(MEW) + 0.5; ys = np.arange(MEH) + 0.5
+        s.lon, s.lat = np.meshgrid(ME_EXT[0] + xs / PXD, ME_EXT[3] - ys / PXD)
+        s.lon = s.lon.astype(np.float32); s.lat = s.lat.astype(np.float32)
+        s.dem = s.from_iran(iran.dem)
+        from scipy.ndimage import distance_transform_edt
+        s.taper = np.clip(distance_transform_edt(~np.isnan(s.dem)) / (25.0 * PXD / 35.0), 0, 1).astype(np.float32)
+    def from_iran(s, arr):
+        """میدان روی کادر ایران (هندسهٔ weather.us) → شبکهٔ خاورمیانه؛ بیرون از کادر ایران NaN."""
+        ax, bx, ay, by = REGIONS['iran']['geo']
+        xi = ax + bx * s.lon - FX0; yi = ay + by * s.lat - FY0
+        out = map_coordinates(np.asarray(arr, np.float32), np.array([yi, xi]), order=1, mode='constant', cval=np.nan, prefilter=False)
+        return out.astype(np.float32)
+
+def render_me(R, field, sc_key, cont=None, cont_lvls=None, cont_fmt='%d', barbs=None, stream=None, lows=None, bold=None):
+    """کاشی نمایشگر: فقط لایهٔ رنگیِ گسسته + خطوط (هم‌مقدار، بردار باد، خط جریان)؛ بدون قاب/عنوان/نوار رنگ (سایت می‌کشد). خروجی WebP بدون اتلاف."""
+    sc = styles.SC[sc_key]; cols = [styles.hex2rgb(c) for c in sc['colors']]; n = len(cols)
+    k = classify(field, sc['edges'])
+    pal = np.array(cols + [(255, 255, 255)], dtype=np.uint8)
+    im = Image.fromarray(pal[np.where(k < 0, n, k)], 'RGB'); lay = None
+    if cont is not None or barbs is not None or stream is not None or lows is not None:
+      with MPL_LOCK:
+        import matplotlib; matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        fig = plt.figure(figsize=(MEW / 100, MEH / 100), dpi=100); ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, MEW); ax.set_ylim(MEH, 0); ax.axis('off')
+        fig.patch.set_alpha(0); ax.patch.set_alpha(0)
+        X1, Y1 = np.arange(MEW) + 0.5, np.arange(MEH) + 0.5
+        if stream is not None:
+            U, V = stream; sub = 4
+            ax.streamplot(X1[::sub], Y1[::sub], np.nan_to_num(U[::sub, ::sub]), -np.nan_to_num(V[::sub, ::sub]), density=2.6, color=(0.1, 0.1, 0.1, 0.55), linewidth=0.55, arrowsize=0.7, arrowstyle='->')
+        if cont is not None:
+            cf = gaussian_filter(np.nan_to_num(cont, nan=np.nanmean(cont)), PXD * 0.30)
+            cs = ax.contour(X1, Y1, cf, levels=cont_lvls, colors='k', linewidths=0.8)
+            ax.clabel(cs, fmt=cont_fmt, fontsize=8, inline=True)
+            if bold is not None:
+                ax.contour(X1, Y1, cf, levels=[bold], colors='k', linewidths=1.8)
+        if barbs is not None:
+            bu, bv = barbs; st = int(PXD * 1.6)
+            ax.barbs(X1[st // 2::st], Y1[st // 2::st], bu[st // 2::st, st // 2::st], -bv[st // 2::st, st // 2::st],
+                     length=5.0, linewidth=0.6, color='#202020', barb_increments=dict(half=5, full=10, flag=50))
+        if lows is not None:                                   # کمینه‌های فشار (L قرمز + مقدار)
+            from scipy.ndimage import minimum_filter
+            m = gaussian_filter(np.nan_to_num(lows, nan=np.nanmean(lows)), PXD * 0.6); mn = minimum_filter(m, size=int(PXD * 8)) == m
+            ys, xs = np.nonzero(mn); marg = 20
+            for y, x in zip(ys, xs):
+                if marg < x < MEW - marg and marg < y < MEH - marg and m[y, x] < 1012:
+                    ax.text(x, y - 5, 'L', color='#e0201c', fontsize=15, fontweight='bold', ha='center', va='center')
+                    ax.text(x, y + 10, '%d' % round(m[y, x]), color='#e0201c', fontsize=8, fontweight='bold', ha='center', va='center')
+        buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=100, transparent=True); plt.close(fig); buf.seek(0)
+        lay = Image.open(buf).convert('RGBA').resize((MEW, MEH))
+    b = io.BytesIO(); im.save(b, 'WEBP', lossless=True, quality=100, method=4)
+    lb = None
+    if lay is not None: bb = io.BytesIO(); lay.save(bb, 'WEBP', lossless=True, quality=100, method=4); lb = bb.getvalue()
+    return b.getvalue(), lb
+
 # ---------------------------------------------------------------- رسم
 FONT_DIR = os.path.join(os.path.dirname(__import__('matplotlib').__file__), 'mpl-data', 'fonts', 'ttf')
 def font(sz, bold=False): return ImageFont.truetype(os.path.join(FONT_DIR, 'DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf'), sz)
@@ -425,6 +508,42 @@ def clim_at(region, d):
         return c[0] + c[1] * region.dem + c[2] * region.lat + c[3] * region.lon + r
     return one(a) * (1 - u) + one(b) * u
 
+ZCLIM = None
+ZCLIM_URLS = ['https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis/Monthlies/pressure/hgt.mon.1991-2020.ltm.nc',
+              'https://psl.noaa.gov/thredds/fileServer/Datasets/ncep.reanalysis/Monthlies/pressure/hgt.mon.1991-2020.ltm.nc',
+              'https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis/Monthlies/pressure/hgt.mon.ltm.nc']
+def load_zclim():
+    """اقلیم ماهانهٔ ارتفاع ژئوپتانسیل ۵۰۰ هکتوپاسکال (NCEP/NCAR، ۱۹۹۱–۲۰۲۰) برای انومالی؛ در صورت دانلود‌نشدن، نقشهٔ انومالی ساخته نمی‌شود."""
+    global ZCLIM
+    if ZCLIM is not None: return ZCLIM or None
+    ZCLIM = False
+    try:
+        import requests, tempfile
+        path = os.path.join(tempfile.gettempdir(), 'hgt_ltm.nc')
+        if not os.path.exists(path):
+            for u in ZCLIM_URLS:
+                try:
+                    r = requests.get(u, timeout=180)
+                    if r.ok and r.content[:3] in (b'CDF', b'\x89HD'): open(path, 'wb').write(r.content); break
+                except Exception: pass
+        if os.path.exists(path):
+            import netCDF4
+            ds = netCDF4.Dataset(path); lev = np.array(ds['level'][:]); k = int(np.argmin(np.abs(lev - 500)))
+            z = np.array(ds['hgt'][:, k]).astype(np.float32)           # (۱۲ ماه، lat، lon) ← lat نزولی در NCEP
+            lat = np.array(ds['lat'][:]); lon = np.array(ds['lon'][:])
+            if lat[0] > lat[-1]: lat = lat[::-1]; z = z[:, ::-1]
+            ZCLIM = dict(z=z, lat=lat, lon=lon); log('اقلیم ارتفاع ۵۰۰ هکتوپاسکال بارگذاری شد')
+        else: log('اقلیم ارتفاع ۵۰۰ هکتوپاسکال دانلود نشد؛ نقشهٔ انومالی ژئوپتانسیل ساخته نمی‌شود')
+    except Exception as e: log(f'اقلیم ژئوپتانسیل خوانده نشد ({e})')
+    return ZCLIM or None
+def z500_clim_at(R, d):
+    C = load_zclim()
+    if C is None: return None
+    m = (d.month - 1) + (d.day - 15) / 30.4; a = int(math.floor(m)) % 12; b = (a + 1) % 12; u = m - math.floor(m)
+    z = C['z'][a] * (1 - u) + C['z'][b] * u
+    fi = (np.where(R.lon < 0, R.lon + 360, R.lon) - C['lon'][0]) / (C['lon'][1] - C['lon'][0]); fj = (R.lat - C['lat'][0]) / (C['lat'][1] - C['lat'][0])
+    return map_coordinates(z, np.array([fj, fi]), order=1, mode='nearest', prefilter=False).astype(np.float32)
+
 # ---------------------------------------------------------------- پردازش یک اجرای یک مدل
 SFC_VARS = {'precipitation', 'snowfall_water_equivalent', 'temperature_2m', 'temperature_2m_max', 'temperature_2m_min', 'relative_humidity_2m'}
 class RunState:
@@ -443,10 +562,10 @@ def needed_vars(mkey, pids, kind):
         if mkey == 'ecmwf':
             v |= {'relative_humidity_2m', 'total_column_integrated_water_vapour', 'cape', 'pressure_msl', 'wind_gusts_10m', 'wind_u_component_10m', 'wind_v_component_10m',
                   'soil_temperature_0_to_7cm', 'precipitation_type'}
-            for p in (925, 850, 700, 500, 300):
+            for p in (925, 850, 700, 500, 300, 250, 200):
                 v |= {f'temperature_{p}hPa', f'relative_humidity_{p}hPa', f'geopotential_height_{p}hPa', f'wind_u_component_{p}hPa', f'wind_v_component_{p}hPa'}
         if mkey == 'access': v |= {'soil_temperature_0_to_10cm'}
-        if mkey == 'gfs': v |= {'cape', 'lifted_index', 'convective_inhibition', 'relative_humidity_2m', 'pressure_msl'}
+        if mkey == 'gfs': v |= {'cape', 'lifted_index', 'convective_inhibition', 'relative_humidity_2m', 'pressure_msl', 'wind_u_component_10m', 'wind_v_component_10m'}
     return v
 
 class Uploader:
@@ -472,7 +591,7 @@ class Uploader:
             if s.out:
                 p = os.path.join(s.out, mkey, run, fname); os.makedirs(os.path.dirname(p), exist_ok=True); open(p, 'wb').write(png)
             if s.host:
-                r = s.call('put', data={'model': mkey, 'run': run, 'file': fname, 'meta': json.dumps(meta)}, files={'png': (os.path.basename(fname), png, 'image/png')})
+                r = s.call('put', data={'model': mkey, 'run': run, 'file': fname, 'meta': json.dumps(meta)}, files={'png': (os.path.basename(fname), png, 'image/webp' if fname.endswith('.webp') else 'image/png')})
                 if not r.get('ok'): log(f'  ✗ آپلود {mkey}/{fname}: {r}'); return
             with s.lock: s.n += 1
         s.fut.append(s.pool.submit(job))
@@ -482,12 +601,23 @@ class Uploader:
             except Exception as e: log(f'  ✗ {e}')
         s.fut = []
 
+def scales_payload():
+    out = {}
+    keys = {v['sc'] for v in PARAMS.values()} | {(v.get('me') or {}).get('sc') for v in PARAMS.values()}
+    for k in keys:
+        if not k: continue
+        sc = styles.SC[k]; out[k] = dict(c=sc['colors'], e=[None if (v == math.inf or v == -math.inf) else v for v in sc['edges']], lo=sc['edges'][0] == -math.inf, hi=sc['edges'][-1] == math.inf)
+        if k == 'sigwx': out[k]['lab'] = styles.SIG_NAMES
+    return out
+
 def leads(vts, run): return [int(round((v - run).total_seconds() / 3600)) for v in vts]
 
 class Engine:
     def __init__(s, a):
         s.a = a; s.state = {}; s.fs = None
-        s.regions = {k: Region(k) for k in a.regions}
+        s.regions = {k: Region(k) for k in a.regions if k != 'me'}
+        if 'me' in a.regions:
+            base = s.regions.get('iran') or Region('iran'); s.regions['me'] = MERegion(base)
         s.up = Uploader(a.host, a.key, a.out)
         if not a.mock:
             import s3fs
@@ -516,7 +646,11 @@ class Engine:
             if M.get('upper'): srcs['upper'] = s.src(M['upper'])
             st = s.state[mkey] = RunState(mkey, run, srcs)
             r = s.up.call('begin', js={'model': mkey, 'run': rid, 'name': M['name'], 'label': M['label'],
-                                       'params': {k: dict(fa=v['fa'], unit=v['unit']) for k, v in PARAMS.items() if mkey in v['models']}})
+                                       'info': dict(tclass='daily', res=M.get('res', ''), cyc=M.get('cyc', ''), prov=M['prov']),
+                                       'cats': [dict(id=i, fa=fa, o=o) for i, fa, o in CATS], 'scales': scales_payload(),
+                                       'params': {k: dict(fa=v['fa'], unit=v['unit'], cat=v['cat'], o=v['ord'], sc=(v.get('me') or {}).get('sc', v['sc']),
+                                                          mu=(v.get('me') or {}).get('unit', v['unit']), alt=v.get('alt', ''), me=int(bool(v.get('me_only'))), ln=int(bool(v.get('cont') or v.get('barbs') or v.get('ln'))))
+                                                  for k, v in PARAMS.items() if mkey in v['models']}})
             st.have = set(r.get('have', [])); log(f'▶ {M["name"]} اجرای {rid}: {len(vts)} گام زمانی، {len(st.have)} نقشه از قبل روی هاست')
         made = 0; t0 = time.time()
         for i, vt in enumerate(vts):
@@ -577,9 +711,10 @@ class Engine:
         for rk, R in s.regions.items():
             for pid in mine:
                 P = PARAMS[pid]
+                if P.get('me_only') and rk != 'me': continue
                 job = s.plan(P, st, vt, lead, dt_h, want_all)
                 if not job: continue
-                fname = f'{rk}/{pid}_{vt:%Y%m%d%H}.png'
+                fname = f'{rk}/{pid}_{vt:%Y%m%d%H}.' + ('webp' if rk == 'me' else 'png')
                 if fname in st.have: continue
                 try:
                     out = s.make(P, pid, st, D, R, vt, lead, dt_h)
@@ -588,6 +723,14 @@ class Engine:
                 if out is None: continue
                 field, extra = out
                 if P.get('skip_empty') and not (np.nanmax(field) >= 0.1): continue
+                if rk == 'me':
+                    mo = P.get('me') or {}; sck = mo.get('sc', P['sc'])
+                    if mo.get('k', 1.0) != 1.0: field = field * mo['k']
+                    png, lines = render_me(R, field, sck, **{k: v for k, v in extra.items() if k in ('cont', 'cont_lvls', 'cont_fmt', 'barbs', 'stream', 'lows', 'bold')})
+                    rid_ = f'{run:%Y%m%d%H}'; s.up.put(mkey, rid_, fname, png, dict(r=rk, m=mkey, p=pid, s=lead, v=f'{vt:%Y%m%d%H}'))
+                    if lines: s.up.put(mkey, rid_, f'me/{pid}L_{vt:%Y%m%d%H}.webp', lines, dict(r=rk, m=mkey, p=pid + 'L', s=lead, v=f'{vt:%Y%m%d%H}'))
+                    st.have.add(fname); made += 1
+                    continue
                 sc = styles.SC[P['sc']]
                 mk = dict(v=1, p=pid, m=M['name'], r=f'{run:%Y%m%d%H}', t=f'{vt:%Y%m%d%H}', g=rk, h=P.get('h', 0) if P['kind'] == 'win' else (24 if P['kind'] == 'day' else 0),
                           s=P['sc'], u=P['unit'], n=P['fa'], e=edges_txt(sc['edges']))
@@ -648,25 +791,42 @@ class Engine:
     def make(s, P, pid, st, D, R, vt, lead, dt_h):
         mkey = st.model; d = D.get('main', {}); src = st.srcs['main']
         I = lambda a, order=1: R.interp(src, a, order)
+        if R.key == 'me' and pid == 'tanom':                    # اقلیم ایستگاهی فقط روی کادر ایران تعریف است
+            o = s.make(P, pid, st, D, R.iran, vt, lead, dt_h)
+            return None if o is None else (R.from_iran(o[0]), {})
         if P['kind'] == 'win':
             f = s.blend(st, R, lambda nm: s.acc(st, nm, P['var'], vt, P['h']) if nm in st.hist else None)
             return (None if f is None else (np.maximum(f, 0), {}))
         if P['kind'] == 'day':
             ser = st.tser['main']; ts = sorted(t for t in ser if vt - timedelta(hours=24) < t <= vt)
             if len(ts) < 3: return None
-            if pid == 'tmax':
+            if pid in ('tmax', 'tmaxr'):
                 f = lambda: np.nanmax(np.stack([ser[t][1] for t in ts]), 0)
-            elif pid == 'tmin':
+            elif pid in ('tmin', 'tminr'):
                 f = lambda: np.nanmin(np.stack([ser[t][2] for t in ts]), 0)
             else:
                 f = lambda: np.nanmean(np.stack([ser[t][0] for t in ts]), 0)
-            T = s.lapse(st, R, f, full=(pid == 'tanom'))
+            T = I(f()) if P.get('raw') else s.lapse(st, R, f, full=(pid == 'tanom'))
             if pid == 'tanom':
                 C = clim_at(R, vt - timedelta(hours=12))
                 if C is None: return None
                 return (T - C, dict(note='Anomaly vs. 1991–2020 IRIMO station normals (Iran only)'))
             return (T, {})
         if pid == 't2m': return (s.lapse(st, R, lambda: d['temperature_2m']), {}) if 'temperature_2m' in d else None
+        if pid == 't2mr': return (I(d['temperature_2m']), {}) if 'temperature_2m' in d else None
+        if pid == 'w10':
+            if 'pressure_msl' not in d or 'wind_u_component_10m' not in d: return None
+            u, v = I(d['wind_u_component_10m']) * 1.94384, I(d['wind_v_component_10m']) * 1.94384; msl = I(d['pressure_msl'])
+            return (np.hypot(u, v), dict(cont=msl, cont_lvls=np.arange(900, 1100, 4), barbs=(u, v), lows=msl))
+        if pid in ('w250', 'w200'):
+            p = int(pid[1:]); u = d.get(f'wind_u_component_{p}hPa'); v = d.get(f'wind_v_component_{p}hPa')
+            if u is None or v is None: return None
+            U, V = I(u) * 1.94384, I(v) * 1.94384
+            return (np.hypot(U, V), dict(stream=(U, V), lows=(I(d['pressure_msl']) if (p == 250 and 'pressure_msl' in d) else None)))
+        if pid == 'z500a':
+            g = d.get('geopotential_height_500hPa'); C = z500_clim_at(R, vt)
+            if g is None or C is None: return None
+            Z = I(g); return ((Z - C) / 10, dict(cont=Z / 10, cont_lvls=np.arange(480, 620, 4), bold=580))
         if pid == 'tsoil':
             v = d.get('soil_temperature_0_to_7cm', d.get('soil_temperature_0_to_10cm'))
             return (I(v), {}) if v is not None else None
@@ -726,7 +886,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--host'); ap.add_argument('--key', default=''); ap.add_argument('--out')
     ap.add_argument('--loop', action='store_true'); ap.add_argument('--max-minutes', type=int, default=0)
-    ap.add_argument('--models', default=','.join(MODELS)); ap.add_argument('--regions', default='iran,fars')
+    ap.add_argument('--models', default=','.join(MODELS)); ap.add_argument('--regions', default='iran,fars,me')
     ap.add_argument('--params', default='', help='فقط این پارامترها (با کاما)'); ap.add_argument('--mock', action='store_true'); ap.add_argument('--probe', action='store_true'); ap.add_argument('--max-steps', type=int, default=0); ap.add_argument('--horizon', type=int, default=0)
     a = ap.parse_args(); a.regions = a.regions.split(','); t_end = time.time() + a.max_minutes * 60 if a.max_minutes else None
     if not a.host and not a.out: sys.exit('--host یا --out لازم است')
