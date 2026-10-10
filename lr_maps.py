@@ -50,17 +50,43 @@ def regrid(arr, lon, lat):
     return map_coordinates(a, [iy, ix], order=3, mode='nearest').astype(np.float32)
 
 def read_nc(path, vname):
+    """خروجی: data(lead,lat,lon), lon, lat, offs(ماه‌های پس از آغاز اجرا), units
+    فایل‌های CPC/NMME متغیر دادهٔ عمومی «fcst» دارند (ابعاد: initial_time, ensmem, target, lat, lon)."""
     import netCDF4
     ds = netCDF4.Dataset(path); vs = ds.variables
-    key = next((k for k in vs if vname in k.lower()), None)
-    if not key: raise RuntimeError(f'متغیر {vname} در فایل نیست ({list(vs)[:8]})')
-    v = vs[key]; dims = v.dimensions
-    lonk = next(k for k in vs if k.lower() in ('lon', 'x', 'longitude')); latk = next(k for k in vs if k.lower() in ('lat', 'y', 'latitude'))
-    data = np.ma.filled(v[:].astype(float), np.nan)
-    data = data.reshape((-1,) + data.shape[-2:])                  # (lead, lat, lon)
-    # ترتیب محورهای lat/lon
-    if v.shape[-1] == len(vs[latk][:]) and v.shape[-2] == len(vs[lonk][:]): data = np.transpose(data, (0, 2, 1))
-    ds_ = (np.array(vs[lonk][:]), np.array(vs[latk][:])); ds.close(); return data, ds_[0], ds_[1]
+    low = {k.lower(): k for k in vs}
+    lonk = next(low[k] for k in ('lon', 'longitude', 'x') if k in low); latk = next(low[k] for k in ('lat', 'latitude', 'y') if k in low)
+    coord = {lonk, latk} | {k for k in vs if k.lower() in ('target', 'ensmem', 'initial_time', 'time', 'lead', 'level', 'member')}
+    key = next((k for k in vs if vname in k.lower() and k not in coord), None) or low.get('fcst')
+    if not key:
+        c = [k for k in vs if k not in coord and len(vs[k].dimensions) >= 3]
+        key = c[0] if c else None
+    if not key: raise RuntimeError(f'متغیر داده در فایل نیست ({list(vs)})')
+    v = vs[key]; dims = [d.lower() for d in v.dimensions]; units = str(getattr(v, 'units', ''))
+    raw = np.ma.filled(np.ma.asarray(v[:]).astype(float), np.nan)
+    raw[np.abs(raw) > 1e15] = np.nan
+    fv = getattr(v, 'missing_value', None)
+    if fv is not None:
+        try: raw[raw == float(np.ravel(fv)[0])] = np.nan
+        except Exception: pass
+    isl = lambda d: d in ('lat', 'latitude', 'y'); iso = lambda d: d in ('lon', 'longitude', 'x')
+    tk = next((d for d in dims if d in ('target', 'lead')), None)
+    for ax in range(len(dims) - 1, -1, -1):              # حذف محورهای اضافه
+        d = dims[ax]
+        if d == tk or isl(d) or iso(d): continue
+        raw = np.nanmean(raw, axis=ax) if d in ('ensmem', 'member') else np.take(raw, -1 if d in ('initial_time', 'time') else 0, axis=ax)
+        dims.pop(ax)
+    if tk is None: raw = raw[None]; dims = ['target'] + dims; tk = 'target'
+    data = np.transpose(raw, [dims.index(tk), next(i for i, d in enumerate(dims) if isl(d)), next(i for i, d in enumerate(dims) if iso(d))])
+    lon = np.array(vs[lonk][:], float); lat = np.array(vs[latk][:], float)
+    offs = None
+    tn = next((k for k in vs if k.lower() == tk), None)
+    if tn:
+        t = np.array(vs[tn][:], float).ravel()
+        if len(t) == data.shape[0]: offs = [int(round(x - 0.5)) for x in t]
+    if offs is None: offs = list(range(data.shape[0]))
+    log(f'  nc: var={key} dims={v.dimensions} units="{units}" shape={tuple(data.shape)} offs={offs[:4]}..')
+    ds.close(); return data, lon, lat, offs, units
 
 def month_add(y, m, k): m += k; return y + (m - 1) // 12, (m - 1) % 12 + 1
 
@@ -77,15 +103,16 @@ def run_model(up, mkey, init_dirs, a):
         if not fs: log(f'  ✗ {mkey}: فایل {vn} نیست'); continue
         with tempfile.TemporaryDirectory() as td:
             p = os.path.join(td, 'x.nc'); open(p, 'wb').write(get(d + sub + fs[0], True))
-            data, lon, lat = read_nc(p, vn)
+            data, lon, lat, offs, units = read_nc(p, vn)
+            m_ = mul if (vn != 'prate' or not units or re.search(r'(s-1|/s|s\^-1)', units.replace(' ', ''), re.I)) else 1.0
         if not started:
             up.call('begin', js={'model': mkey, 'run': run, 'name': mkey.upper(), 'label': label, 'info': dict(tclass='monthly', res='1°', cyc='ماهانه', prov='NOAA CPC / NMME'),
                                  'cats': [dict(id=i, fa=f, o=o) for i, f, o in N.CATS],
                                  'scales': {k: dict(c=styles.SC[k]['colors'], e=[None if abs(x) == math.inf else x for x in styles.SC[k]['edges']], lo=True, hi=True) for k in ('lrta', 'lrpa')},
                                  'params': {v[0]: dict(fa=v[1], unit=v[2], cat=v[3], o=90 + i, sc=v[4], mu=v[2], alt='', me=1, ln=0) for i, v in enumerate(VARS.values())}}); started = True
         for k in range(min(len(data), 9)):
-            y, m = month_add(y0, m0, k); valid = f'{y}{m:02d}0100'
-            f = regrid(data[k] * mul, lon, lat)
+            y, m = month_add(y0, m0, offs[k]); valid = f'{y}{m:02d}0100'
+            f = regrid(data[k] * m_, lon, lat)
             if not np.isfinite(f).any(): continue
             dat, _ = N.render_me(None, f, sc)
             up.put(mkey, run, f'me/{pid}_{valid}.webp', dat, dict(s=k)); made += 1
@@ -98,7 +125,7 @@ def main():
     if a.mock:
         global get, links, find_dir, read_nc
         rng = np.random.default_rng(1); la = np.arange(-89.5, 90); lo = np.arange(0.5, 360)
-        def read_nc(path, vn): return rng.normal(0, 1.2 if vn == 'tmp2m' else 1.5e-5 if vn == 'prate' else 1, (7, 180, 360)).astype(np.float32) * (1 if vn == 'tmp2m' else 1), lo, la
+        def read_nc(path, vn): return rng.normal(0, 1.2 if vn == 'tmp2m' else 1.5e-5 if vn == 'prate' else 1, (7, 180, 360)).astype(np.float32), lo, la, list(range(7)), 'kg m-2 s-1'
         find_dir = lambda k: BASE + k + '/'
         links = lambda u: (['202610/'] if False else []) or (['2026100800/'] if u.endswith('/') and u.count('/') < 7 else ['prate.nc', 'tmp2m.nc'])
         get = lambda u, b=False: b'x'
