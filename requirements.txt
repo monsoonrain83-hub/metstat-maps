@@ -6,3 +6,4 @@ scipy
 pillow
 matplotlib
 netCDF4
+cdsapi>=0.7.2
