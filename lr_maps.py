@@ -120,7 +120,7 @@ def run_model(up, mkey, init_dirs, a):
         for agg, key in keys.items():
             if key in started: continue
             tc, cyc = ('monthly', 'ماهانه (گام ۱ ماهه)') if agg == 1 else ('seasonal', 'فصلی (میانگین ۳ ماهه)')
-            up.call('begin', js={'model': key, 'run': run, 'name': key.upper(), 'label': label + ('' if agg == 1 else ' — ۳ ماهه'), 'info': dict(tclass=tc, res='1°', cyc=cyc, prov='NOAA CPC / NMME'),
+            up.call('begin', js={'model': key, 'run': run, 'name': {'cfsvtwo':'CFSv2','ccsmfour':'CCSM4','gemnemo':'GEM5-NEMO','cancm':'CanCM4i'}.get(mkey, mkey.upper()), 'label': label + ('' if agg == 1 else ' — ۳ ماهه'), 'info': dict(tclass=tc, res='1°', cyc=cyc, prov='NOAA CPC / NMME'),
                                  'cats': [dict(id=i, fa=f, o=o) for i, f, o in N.CATS],
                                  'scales': {k: dict(c=styles.SC[k]['colors'], e=[None if abs(x) == math.inf else x for x in styles.SC[k]['edges']], lo=True, hi=True) for k in ('lrta', 'lrpa')},
                                  'params': {v[0]: dict(fa=v[1], unit=v[2], cat=v[3], o=90 + i, sc=v[4], mu=v[2], alt='', me=1, ln=0) for i, v in enumerate(VARS.values())}}); started.add(key)
@@ -148,7 +148,7 @@ def run_model(up, mkey, init_dirs, a):
     return made[1] + made[3]
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument('--host'); ap.add_argument('--key', default=''); ap.add_argument('--out'); ap.add_argument('--models', default=','.join(MODELS)); ap.add_argument('--mock', action='store_true')
+    ap = argparse.ArgumentParser(); ap.add_argument('--host'); ap.add_argument('--key', default=''); ap.add_argument('--out'); ap.add_argument('--models', default=','.join(MODELS)+',ecmwf'); ap.add_argument('--mock', action='store_true')
     a = ap.parse_args(); up = N.Uploader(a.host, a.key, a.out); tot = 0
     if a.mock:
         global get, links, find_dir, read_nc
@@ -159,7 +159,7 @@ def main():
         get = lambda u, b=False: b'x'
         a.models = 'nmme'
     for mk in a.models.split(','):
-        try: tot += run_model(up, mk, None, a)
+        try: tot += (__import__('lr_ecmwf').run(up, a, sys.modules[__name__]) if mk == 'ecmwf' else run_model(up, mk, None, a))
         except Exception as e: log(f'✗ {mk}: {type(e).__name__}: {e}')
     log(f'پایان: {tot} نقشه'); sys.exit(0)
 
