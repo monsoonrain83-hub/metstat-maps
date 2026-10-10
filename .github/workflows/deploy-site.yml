@@ -1,0 +1,64 @@
+{
+  "name": "metstat-deploy-site",
+  "on": {
+    "push": {
+      "paths": [
+        "site_src.zip",
+        "nwp_upload.php"
+      ]
+    },
+    "workflow_dispatch": {}
+  },
+  "concurrency": {
+    "group": "deploy",
+    "cancel-in-progress": true
+  },
+  "jobs": {
+    "deploy": {
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 25,
+      "steps": [
+        {
+          "uses": "actions/checkout@v4"
+        },
+        {
+          "uses": "actions/setup-python@v5",
+          "with": {
+            "python-version": "3.12"
+          }
+        },
+        {
+          "uses": "actions/setup-node@v4",
+          "with": {
+            "node-version": "20"
+          }
+        },
+        {
+          "name": "unzip + build",
+          "run": "mkdir work && unzip -q site_src.zip -d work && cd work/site && python3 build_site.py index.html && ls -la index.html"
+        },
+        {
+          "name": "smoke test (browser)",
+          "run": "cd work/site/tests && npm init -y >/dev/null && npm i playwright@1.47.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null && node smoke.js ../index.html"
+        },
+        {
+          "name": "prepare files",
+          "run": "mkdir -p dist/online && cp work/site/index.html dist/index.html && cp nwp_upload.php dist/online/nwp_upload.php"
+        },
+        {
+          "name": "upload to host (FTPS)",
+          "uses": "SamKirkland/FTP-Deploy-Action@v4.3.5",
+          "with": {
+            "server": "${{ secrets.FTP_SERVER }}",
+            "username": "${{ secrets.FTP_USERNAME }}",
+            "password": "${{ secrets.FTP_PASSWORD }}",
+            "protocol": "ftps",
+            "local-dir": "./dist/",
+            "server-dir": "${{ secrets.FTP_DIR }}",
+            "state-name": ".metstat-deploy-state.json"
+          }
+        }
+      ]
+    }
+  }
+}
