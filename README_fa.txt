@@ -41,3 +41,14 @@ MetStat — ساخت خودکار نقشه‌های مدل‌های عددی ر�
     lr_maps.py  → NMME (میانگین چندمدلی، CFSv2، CCSM4، GEM5-NEMO، NASA، GFDL، CanCM4i) از FTP عمومی CPC؛ انومالی ماهانهٔ بارش و دما
   هر دو آزمایشی‌اند و ساختار آدرس‌ها با فهرست‌گیری کشف می‌شود؛ هر خطا فقط همان مدل/شاخص را رد می‌کند (لاگ Actions را ببینید).
   آزمون محلی:  python indices.py --mock --out out   |   python lr_maps.py --mock
+
+─── استقرار خودکار سایت (workflow: metstat-deploy-site) ───
+هر بار فایل site_src.zip (سورس سایت) یا nwp_upload.php را در مخزن آپلود/جایگزین و Commit کنید، GitHub:
+  ۱) سایت را می‌سازد (index.html)، ۲) آزمون دودی مرورگر را اجرا می‌کند (اگر خطا بود، چیزی روی هاست نمی‌رود)،
+  ۳) index.html و online/nwp_upload.php را با FTPS روی هاست می‌گذارد. دیگر zip و Extract در cPanel لازم نیست.
+Secrets لازم (Settings → Secrets and variables → Actions → New repository secret):
+  FTP_SERVER   مثل ftp.wtafkik.ir (یا IP هاست)
+  FTP_USERNAME حساب FTP که در cPanel → FTP Accounts می‌سازید (دایرکتوری آن را روی public_html قفل کنید)
+  FTP_PASSWORD رمز همان حساب
+  FTP_DIR      مسیر دایرکتوری سایت نسبت به ریشهٔ حساب FTP، مثل /  یا  /public_html/   (باید به / ختم شود)
+فایل nwp_upload.php باید کنار site_src.zip در ریشهٔ مخزن باشد. mx_config.json و clim_tmean.npz هرگز در مخزن نگذارید.
