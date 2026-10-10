@@ -14,7 +14,7 @@
         {"uses": "actions/setup-python@v5", "with": {"python-version": "3.12"}},
         {"name": "install", "run": "pip install -r requirements.txt"},
         {"name": "indices", "continue-on-error": true, "run": "python indices.py --host \"${{ secrets.MX_HOST }}\" --key \"${{ secrets.MX_KEY }}\""},
-        {"name": "longrange", "continue-on-error": true, "run": "python lr_maps.py --host \"${{ secrets.MX_HOST }}\" --key \"${{ secrets.MX_KEY }}\""}
+        {"name": "longrange", "env": {"CDSAPI_URL": "https://cds.climate.copernicus.eu/api", "CDSAPI_KEY": "${{ secrets.CDSAPI_KEY }}"}, "continue-on-error": true, "run": "python lr_maps.py --host \"${{ secrets.MX_HOST }}\" --key \"${{ secrets.MX_KEY }}\""}
       ]
     }
   }
