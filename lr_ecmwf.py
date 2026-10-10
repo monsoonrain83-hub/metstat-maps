@@ -7,7 +7,7 @@ import numpy as np
 
 DATASET = 'seasonal-monthly-single-levels'
 SYSTEM = os.environ.get('ECMWF_SYSTEM', '51')
-KEYS = {1: 'ecmwf', 3: 'ecmwfs'}          # کلید روی هاست فقط حروف a-z
+KEYS = {1: 'ecmwfseas', 3: 'ecmwfseass'}  # کلید روی هاست فقط حروف a-z (۲ تا ۱۰ حرف)؛ 'ecmwf' برای مدل روزانهٔ IFS است و نباید استفاده شود
 LEADS = ['1', '2', '3', '4', '5', '6']
 
 def fetch(c, ptype, y0, m0, td):
@@ -28,7 +28,7 @@ def read_cds(path, log=print):
     ds = netCDF4.Dataset(path); vs = ds.variables; low = {k.lower(): k for k in vs}
     lonk = next(low[k] for k in ('longitude', 'lon', 'x') if k in low); latk = next(low[k] for k in ('latitude', 'lat', 'y') if k in low)
     lon = np.array(vs[lonk][:], float); lat = np.array(vs[latk][:], float); out = {}
-    for name, alts in (('prate', ('tp', 'total_precipitation')), ('tmp2m', ('t2m', '2m_temperature'))):
+    for name, alts in (('prate', ('tprate', 'tp', 'total_precipitation', 'total_precipitation_rate')), ('tmp2m', ('t2m', '2m_temperature'))):
         key = next((k for k in vs if k.lower() in alts), None)
         if not key: continue
         v = vs[key]; dims = [d.lower() for d in v.dimensions]; units = str(getattr(v, 'units', ''))
@@ -51,8 +51,8 @@ def read_cds(path, log=print):
 def pr_mul(units):
     """تبدیل بارش به mm/d"""
     u = units.replace(' ', '').lower()
-    if re.search(r'(^m(s-1|/s|s\^-1)$)', u): return 86400.0 * 1000.0
-    if re.search(r'kg', u): return 86400.0
+    if 'kg' in u: return 86400.0
+    if re.search(r's\*?\*?\^?-1|/s', u): return 86400.0 * 1000.0      # m s**-1 (tprate)
     return 1000.0 / 30.4                                 # مجموع ماهانه بر حسب متر (احتیاط)
 
 def run(up, a, L):
@@ -73,7 +73,7 @@ def run(up, a, L):
         cl = read_cds(fetch(c, 'hindcast_climate_mean', y0, m0, td), log)
     fld = {}
     for vn, (pid, fa, unit, cat, sc, mul0) in L.VARS.items():
-        if vn not in fc or vn not in cl: log(f'  ✗ ecmwf: {vn} در فایل نیست'); continue
+        if vn not in fc or vn not in cl: log(f'  ✗ ecmwf: {vn} در فایل نیست؛ متغیرهای موجود: fc={list(fc)} cl={list(cl)}'); continue
         d, lon, lat, un = fc[vn]; mul = pr_mul(un) if vn == 'prate' else 1.0
         fld[vn] = {}
         for k in range(min(len(d), len(cl[vn][0]))):
