@@ -10,11 +10,11 @@ from scipy.ndimage import map_coordinates
 import nwp_maps as N, styles
 
 BASE = 'https://ftp.cpc.ncep.noaa.gov/NMME/realtime_anom/'
-# کلید مدل روی هاست: (نام پوشه در CPC — بدون حساسیت به حروف، برچسب فارسی, نام لاتین)
+# کلید مدل روی هاست فقط حروف a-z (۲ تا ۱۰ حرف؛ رقم را PHP رد می‌کند → خطای {'error':'model'}): (نام پوشه در CPC — بدون حساسیت به حروف، برچسب فارسی, نام لاتین)
 MODELS = {
     'nmme':    ('ENSMEAN', 'NMME میانگین چندمدلی', 'NMME ensemble mean'),
-    'cfsv2':   ('CFSv2', 'CFSv2 (NOAA)', 'CFSv2'),
-    'ccsm4':   ('CCSM4', 'NCAR CCSM4', 'NCAR CCSM4'),
+    'cfsvtwo': ('CFSv2', 'CFSv2 (NOAA)', 'CFSv2'),
+    'ccsmfour':('CCSM4', 'NCAR CCSM4', 'NCAR CCSM4'),
     'gemnemo': ('GEM5_NEMO', 'GEM5-NEMO (ECCC)', 'GEM5-NEMO'),
     'nasa':    ('NASA', 'NASA GEOS-S2S', 'NASA GEOS-S2S'),
     'gfdl':    ('GFDL', 'GFDL SPEAR', 'GFDL SPEAR'),
@@ -95,12 +95,14 @@ def run_model(up, mkey, init_dirs, a):
     if not d: log(f'  ✗ {mkey}: پوشه‌ای شبیه {folder} در CPC نیست'); return 0
     subs = sorted(x for x in links(d) if re.fullmatch(r'\d{8,10}/', x)); 
     if not subs: log(f'  ✗ {mkey}: پوشهٔ اجرا نیست'); return 0
-    sub = subs[-1]; ym = sub[:6]; y0, m0 = int(ym[:4]), int(ym[4:6]); run = sub[:8] + '00' if len(sub) >= 9 else ym + '0800'
+    sub = subs[-1]; ym = sub[:6]; y0, m0 = int(ym[:4]), int(ym[4:6])
+    if (time.gmtime().tm_year - y0) * 12 + time.gmtime().tm_mon - m0 > 3: log(f'  ✗ {mkey}: آخرین اجرا قدیمی است ({sub}) — کنار گذاشته شد'); return 0
+    run = sub[:8] + '00' if len(sub) >= 9 else ym + '0800'
     files = [f for f in links(d + sub) if f.endswith('.nc')]
     made = 0; started = False
     for vn, (pid, fa, unit, cat, sc, mul) in VARS.items():
         fs = [f for f in files if vn in f.lower()]
-        if not fs: log(f'  ✗ {mkey}: فایل {vn} نیست'); continue
+        if not fs: log(f'  ✗ {mkey}: فایل {vn} نیست؛ فایل‌های موجود: {files[:12]}'); continue
         with tempfile.TemporaryDirectory() as td:
             p = os.path.join(td, 'x.nc'); open(p, 'wb').write(get(d + sub + fs[0], True))
             data, lon, lat, offs, units = read_nc(p, vn)
